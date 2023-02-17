@@ -1,0 +1,6 @@
+PUBPOL 542
+Deliverable 2: "Data Analytics in R" 
+Elena Popic
+
+Note: The R-dataframe used for the purposes of this exercise is the integrated dataframe created in the previous assignment (please see https://elenapopic542.github.io/Deliverable1/ for details on this dataframe). The data is sourced from the World Bank and contains several variables on country-level economic and development indicators, in particular data on inflation, GDP, and employment.    
+
