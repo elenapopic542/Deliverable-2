@@ -1,0 +1,252 @@
+PUBPOL 542
+Deliverable 2: "Data Analytics in R" 
+Elena Popic
+
+Note: The R-dataframe used for the purposes of this exercise is the integrated dataframe created in the previous assignment (please see https://elenapopic542.github.io/Deliverable1/ for details). The data is sourced from the World Bank and contains several variables on country-level economic and development indicators, in particular data on inflation, GDP, and GNI indicators.    
+
+This assignment performs a Cluster Analysis as a technique for Dimensionality Reduction.
+
+```{r}
+#Cleaning the memory:
+rm(list = ls()) 
+
+#Providing the link to the R-dataframe location in the Github repository:
+link='https://github.com/elenapopic542/Deliverable-2/raw/main/wbdata.RDS'
+
+#Reading-in the R-dataframe using the readRDS function:
+df=readRDS(file = url(link))
+
+#Reset indexes to address concerns that index will start at "0" (given that the data were exported from a Pandas dataframe):
+row.names(df)=NULL
+
+#Verifying the data types:
+str(df)
+```
+Subsetting the data: 
+
+Based on the above output, the dataframe has 109 rows/country-level observations and 10 columns, out of which 9 are numeric variables. 
+
+However, I am going to use only 5 of these variables for clustering purposes (GDPcapita, GDPgrowth, GNIcapita, GNIgrowth, and GNIusd), as my goal is to group the 109 countries based on their level of economic development and growth as captured by the value of goods and services produced (GDP series), and by the total income earned by individuals and legal entities (GNI series). 
+
+```{r}
+#Creating a new dataframe with the subset of columns assigned for clustering purposes: 
+dataToCluster=df[,c(6,7,8,9,10)] 
+
+#Saving the country names as the row name:
+row.names(dataToCluster)=df$Country 
+```
+
+Computing the Distance Matrix: Through clustering, I aim to group the 109 countries starting with the computation of "distances" based on their similarities across the 5 numeric variables selected for clustering.
+
+```{r}
+#Setting the seed for result-replication purposes:
+set.seed(999) 
+```
+
+I will use the default euclidean distance method to compute the distance matrix, given that all the 5 variables in the created dataframe are numeric. For dataframes with more than one data-type, the "gower" method is suitable.  
+
+```{r}
+library(cluster)
+distanceMatrix=daisy(x=dataToCluster) 
+```
+
+For ease of analysis, I will represent the calculated distances in a bi-dimensional space using the cmdscale function that maps the points from the above-created distance matrix.
+
+```{r}
+#Creating an object to store the coordinates for two-dimensional mapping:
+mappingData = cmdscale(distanceMatrix, k=2) 
+
+#From the previously created object, saving coordinates to the original dataframe:
+df$V1 = mappingData[,1] #all rows, first column from the mappingData object
+df$V2 = mappingData[,2] #all rows, second column from the mappingData object
+
+#Checking the first ten rows:
+df[,c('V1','V2')][1:10,]
+
+```
+```{r}
+# Creating a plot to illustrate the points represented by the above coordinates to check for potentially emerging groups of countries: 
+library(ggplot2) 
+base = ggplot(data=df,
+             aes(x=V1, y=V2,
+                 label=Country))  
+base + geom_text(size=1)
+```
+
+Based on the above output, there are emerging potentially two or more groups of countries. 
+
+```{r}
+# Creating a hierarchical cluster:
+hrclust = hclust(distanceMatrix)
+# As an alternative to the above map, creating a dendogram to check for potentially emerging groups of countries:
+plot(hrclust,hang = -1,cex=0.5) 
+```
+
+Although the Agnes clustering method might be more suitable for my relatively small dataset (109 rows), in the following, I will identify the optimal number of clusters using both the divisive (top-down) and agglomerative (bottom-up) approaches to compare their results. 
+
+Under the divisive Diana method, the algorithm starts with one large cluster and gradually fragments it into smaller clusters, whereas the Agnes method starts with each observation as a separate cluster and proceeds to merging these clusters. 
+  
+```{r}
+library(factoextra) 
+#Identifying the suggested optimal number of clusters using the agglomerative technique to hierarchical clustering:
+fviz_nbclust(dataToCluster, 
+             hcut,
+             diss=distanceMatrix,
+             method = "gap_stat",
+             k.max = 10,
+             verbose = F,
+             hc_func = "agnes") #agnes is the function for agglomerative approach to clustering
+```
+```{r}
+#Identifying the suggested optimal number of clusters using the divisive technique to hierarchical clustering:
+fviz_nbclust(dataToCluster, 
+             hcut,
+             diss=distanceMatrix,
+             method = "gap_stat",
+             k.max = 10,
+             verbose = F, #the verbose argument suppresses intermediate output or messages.
+             hc_func = "diana") #diana is the function for the divisive approach to clustering. 
+```
+
+In the following lines of code, I am computing the clusters using the suggestion of two clusters generated by both the aggregative approach (i.e, Agnes) and divise approach (i.e., Diana) for hierarchical clustering.
+
+```{r}
+#Setting the suggested number of two clusters:
+NumberOfClusterDesired=2
+
+#Aggregative approach
+#library(factoextra)
+res.agnes= hcut(distanceMatrix, 
+                k = NumberOfClusterDesired,
+                isdiss=TRUE,
+                hc_func='agnes',
+                hc_method = "ward.D2")
+
+#Divisive approach
+res.diana= hcut(distanceMatrix, 
+                k = NumberOfClusterDesired,
+                isdiss=TRUE,
+                hc_func='diana',
+                hc_method = "ward.D2")
+
+#Saving the clustering results stored in the res.agnes object to the original dataframe
+df$agn=as.factor(res.agnes$cluster) #the as.factor function converts vectors into categorical variables (i.e., factors)
+df$dia=as.factor(res.diana$cluster)
+```
+
+```{r}
+#Below I use the GNIusd variable to assess the ordering that the clusters represent on this indicator
+aggregate(data=df,
+          GNIusd~agn,
+          FUN=mean)
+```
+
+```{r}
+aggregate(data=df,
+          GNIusd~dia,
+          FUN=mean)
+```
+
+```{r}
+#To evaluate the robustness of results, I start by computing the "silhouette measure" for each observation under each of the two approaches to clustering:
+fviz_silhouette(res.agnes)
+```
+
+```{r}
+library(factoextra)
+fviz_silhouette(res.diana)
+```
+
+From the above results, we note that the agglomerative clustering approach Agnes has generated a slightly higher average silhouette measure than the divise approach Diana (0.63 under Agnes vs. 0.62 under Diana). 
+
+The output for both clustering techniques shows that a series of observations have a relatively low albeit positive silhouette measure (under 0.25), potentially suggesting the need to revisit some weaker clustering instances.
+
+In addition, under the Agnes method, there are instances of wrong clustering in the second cluster, compared to no such observations under the Diana approach.
+
+This is consistent with the expectation that the Diana method performs more robustly in the early stages compared to its counterpart, as pointed out by Tokuda et. al (2022) in "Revisiting agglomerative clustering" (https://doi.org/10.1016/j.physa.2021.126433). 
+
+```{r}
+#Saving silhouette measures for each observation under both methods:
+agnEval=data.frame(res.agnes$silinfo$widths)
+diaEval=data.frame(res.diana$silinfo$widths)
+
+#Creating an object with silhouette measures that have negative values (i.e., indicating wrongly clustered cases):
+agnPoor=rownames(agnEval[agnEval$sil_width<0,])
+diaPoor=rownames(diaEval[diaEval$sil_width<0,])
+
+library("qpcR") 
+#Creating a single-column dataframe based on the above vectors, sorted in ascending order and binded with missing values using the cbind.na function to maintain the same number of rows:
+bad_Clus=as.data.frame(qpcR:::cbind.na(sort(agnPoor),
+                                      sort(diaPoor)))
+
+#Assigning a name for the column in the bad_Clus dataframe:
+names(bad_Clus)=c("agn","dia")
+bad_Clus
+
+#Checking the cases of wrong clustering:
+bad_Clus
+```
+
+Based on the above output, one country (i.e., China) was wrongly attributed to the second cluster under the Agnes method. There was no wrong clustering under the Diana approach. In the following, I create visual representations to highlight this output. 
+
+```{r}
+#Generating visual representations to illustrate the output for the two methods:
+
+#Agnes:
+base = ggplot(data=df,
+             aes(x=V1, y=V2,
+                 label=Country)) 
+agnPlot=base + labs(title = "AGNES") + geom_point(size=2,
+                                              aes(color=agn),
+                                              show.legend = T) 
+agnPlot
+```
+```{r}
+#Generating the same plot for the Diana method:
+diaPlot=base + labs(title = "DIANA") + geom_point(size=2,
+                                              aes(color=dia),
+                                              show.legend = T) 
+diaPlot
+```
+
+```{r}
+#Juxtaposing the plots using the ggpubr package:
+
+library(ggpubr)
+ggarrange(agnPlot, diaPlot,ncol = 2,common.legend = T)
+```
+```{r}
+#Labelling the wrongly clustered cases using the previously created agnPoor object:
+LABELagn=ifelse(df$Country%in%agnPoor,df$Country,"")
+
+#Generating a new plot containing these labels:
+library(ggrepel)
+agnPlot= agnPlot + 
+         geom_text_repel(aes(label=LABELagn),
+                         max.overlaps = 50,
+                         min.segment.length = unit(0, 'lines'))
+agnPlot
+
+```
+```{r}
+#Generating a dendogram for the Agnes approach:
+fviz_dend(res.agnes,
+          k=NumberOfClusterDesired, 
+          cex = 0.45, 
+          horiz = T,
+          main = "AGNES approach")
+```
+
+```{r}
+#Generating a dendogram for the Diana approach:
+fviz_dend(res.diana,
+          k=NumberOfClusterDesired, 
+          cex = 0.45, 
+          horiz = T,
+          main = "DIANA approach")
+```
+
+To conclude, on the overall, for my relatively small dataset (i.e., 109 observations) with a series of correlated economic indicators used for clustering purposes, the differences in performance under the Agnes and Diana approaches were not significant. 
+
+Both methods have generated two clusters of countries with the notable difference in performance that under the Agnes method, one country (China) was wrongly clustered, whereas the Diana approach did not generate instances of wrong clustering. 
+
