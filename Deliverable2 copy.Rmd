@@ -370,7 +370,7 @@ fviz_cluster(k, data = dataToCluster,
              repel = TRUE) 
 ```
 
-When generating the four clusters, the non-hierarchical k-means algorithm grouped the countries according to their GDP per capita and GNI per capita, while the other variables used in the clustering algorithm (i.e., GNI in USD, GDP growth and GNI growth) do not reflect the same underlying pattern. 
+When generating the four clusters, the non-hierarchical k-means algorithm grouped the countries according to their GDP per capita and GNI per capita from low to high, while the other variables used in the clustering algorithm (i.e., GNI in USD, GDP growth and GNI growth) do not reflect the same underlying pattern. 
 
 Based on the above output, the clusters do not seem to overlap, while the ratio of the between-clusters sum of squares to the total sum of squares is 67.1 %, which shows that the clusters are relatively well separated from each other.  
 
