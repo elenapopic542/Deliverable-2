@@ -80,6 +80,13 @@ base = ggplot(data=df,
 base + geom_text(size=1)
 ```
 
+```{r}
+#Addressing overlaps:
+library(ggrepel)
+base + geom_text_repel(size=1.5,
+                       max.overlaps = 20) 
+```
+
 Creating additional visualizations (interpretation below):
 ```{r, eval=TRUE}
 # Hierarchical clustering:
